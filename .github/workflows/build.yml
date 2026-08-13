@@ -13,20 +13,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos and iOS 16.5 SDK
+      - name: Install Theos, Linux iOS toolchain and iOS SDK
         shell: bash
         run: |
           set -e
           export THEOS="$HOME/theos"
           echo "THEOS=$THEOS" >> "$GITHUB_ENV"
           git clone --recursive https://github.com/theos/theos.git "$THEOS"
-          mkdir -p "$THEOS/sdks"
-          curl -fL --retry 3 https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz -o /tmp/iPhoneOS16.5.sdk.tar.xz
-          tar -xJf /tmp/iPhoneOS16.5.sdk.tar.xz -C "$THEOS/sdks"
-          test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
+          # The installer handles the Linux iOS clang/ld toolchain and patched SDKs.
+          # CI=1 disables interactive prompts and selects the non-Swift toolchain.
+          CI=1 bash "$THEOS/bin/install-theos"
+          test -x "$THEOS/toolchain/linux/iphone/bin/clang"
           echo "$THEOS/bin" >> "$GITHUB_PATH"
           echo "Installed SDKs:"
           ls -1 "$THEOS/sdks"
+          echo "Toolchain:"
+          "$THEOS/toolchain/linux/iphone/bin/clang" --version
 
       - name: Build Rootless package
         working-directory: LowPowerSleep
@@ -50,20 +52,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install roothide/Theos and iOS 16.5 SDK
+      - name: Install roothide/Theos, Linux iOS toolchain and iOS SDK
         shell: bash
         run: |
           set -e
           export THEOS="$HOME/theos"
           echo "THEOS=$THEOS" >> "$GITHUB_ENV"
           git clone --recursive https://github.com/roothide/theos.git "$THEOS"
-          mkdir -p "$THEOS/sdks"
-          curl -fL --retry 3 https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz -o /tmp/iPhoneOS16.5.sdk.tar.xz
-          tar -xJf /tmp/iPhoneOS16.5.sdk.tar.xz -C "$THEOS/sdks"
-          test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
+          # roothide/Theos keeps the standard Theos Linux toolchain layout.
+          # Its installer installs the arm64/arm64e-capable iOS toolchain and SDKs.
+          CI=1 bash "$THEOS/bin/install-theos"
+          test -x "$THEOS/toolchain/linux/iphone/bin/clang"
           echo "$THEOS/bin" >> "$GITHUB_PATH"
           echo "Installed SDKs:"
           ls -1 "$THEOS/sdks"
+          echo "Toolchain:"
+          "$THEOS/toolchain/linux/iphone/bin/clang" --version
 
       - name: Build Roothide package
         working-directory: LowPowerSleep
