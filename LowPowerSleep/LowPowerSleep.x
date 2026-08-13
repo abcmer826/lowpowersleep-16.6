@@ -5,25 +5,55 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
     enabled = (enabledValue) ? [enabledValue boolValue] : YES;
 }
 
+static BOOL lpmIsEnabled(void) {
+    Class cls = %c(_PMLowPowerMode);
+    if (!cls || ![cls respondsToSelector:@selector(sharedInstance)]) {
+        return [[NSProcessInfo processInfo] isLowPowerModeEnabled];
+    }
+
+    id lpm = [cls sharedInstance];
+    if (!lpm || ![lpm respondsToSelector:@selector(getPowerMode)]) {
+        return [[NSProcessInfo processInfo] isLowPowerModeEnabled];
+    }
+
+    return [lpm getPowerMode] == 1;
+}
+
+static void setLPM(BOOL enabledValue) {
+    Class cls = %c(_PMLowPowerMode);
+    if (!cls || ![cls respondsToSelector:@selector(sharedInstance)]) {
+        return;
+    }
+
+    id lpm = [cls sharedInstance];
+    SEL setSelector = @selector(setPowerMode:fromSource:);
+    if (!lpm || ![lpm respondsToSelector:setSelector]) {
+        return;
+    }
+
+    // Do not change Low Power Mode synchronously from SpringBoard's lock/unlock
+    // transition callbacks. On iOS 16 this can re-enter the lock transaction.
+    [lpm setPowerMode:enabledValue ? 1 : 0 fromSource:@"SpringBoard"];
+}
+
 %hook SBSleepWakeHardwareButtonInteraction
 - (void)_playLockSound {
     %orig;
 
     if (enabled) {
-        if ([[%c(SBLockScreenManager) sharedInstance] isUILocked]) {
-            // Preserve the author's original behavior: do nothing if already locked.
-        } else {
-            if ([[NSProcessInfo processInfo] isLowPowerModeEnabled]) {
-                is_LPM_on_before = YES;
-            } else {
-                // iOS 15+: _CDBatterySaver was replaced by _PMLowPowerMode.
-                // Use the documented two-argument selector; do not use the
-                // completion variant or manually dlopen the private framework.
-                _PMLowPowerMode *lowPowerMode = [%c(_PMLowPowerMode) sharedInstance];
-                if (lowPowerMode) {
-                    [lowPowerMode setPowerMode:1 fromSource:@"SpringBoard"];
-                }
-                is_LPM_on_before = NO;
+        Class lockManagerClass = %c(SBLockScreenManager);
+        id lockManager = lockManagerClass ? [lockManagerClass sharedInstance] : nil;
+        BOOL isLocked = lockManager && [lockManager respondsToSelector:@selector(isUILocked)]
+            ? [lockManager isUILocked] : NO;
+
+        if (!isLocked) {
+            is_LPM_on_before = lpmIsEnabled();
+            if (!is_LPM_on_before) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (enabled) {
+                        setLPM(YES);
+                    }
+                });
             }
         }
     }
@@ -35,17 +65,17 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
     %orig;
 
     if (enabled) {
-        if ([[%c(SBCoverSheetPresentationManager) sharedInstance] hasBeenDismissedSinceKeybagLock]) {
-            // Preserve the author's original behavior.
-        } else {
-            if (is_LPM_on_before == YES) {
-                // Low Power Mode was already enabled before locking; leave it on.
-            } else {
-                _PMLowPowerMode *lowPowerMode = [%c(_PMLowPowerMode) sharedInstance];
-                if (lowPowerMode) {
-                    [lowPowerMode setPowerMode:0 fromSource:@"SpringBoard"];
+        Class presentationManagerClass = %c(SBCoverSheetPresentationManager);
+        id presentationManager = presentationManagerClass ? [presentationManagerClass sharedInstance] : nil;
+        BOOL dismissedSinceKeybagLock = presentationManager && [presentationManager respondsToSelector:@selector(hasBeenDismissedSinceKeybagLock)]
+            ? [presentationManager hasBeenDismissedSinceKeybagLock] : NO;
+
+        if (!dismissedSinceKeybagLock && !is_LPM_on_before) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (enabled) {
+                    setLPM(NO);
                 }
-            }
+            });
         }
     }
 }
