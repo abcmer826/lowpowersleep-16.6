@@ -13,18 +13,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos (Rootless)
+      - name: Install Theos and iOS 16.5 SDK
         shell: bash
         run: |
+          set -e
           export THEOS="$HOME/theos"
           echo "THEOS=$THEOS" >> "$GITHUB_ENV"
           git clone --recursive https://github.com/theos/theos.git "$THEOS"
-          "$THEOS/bin/install-sdk" 16.5
+          mkdir -p "$THEOS/sdks"
+          curl -fL --retry 3 https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz -o /tmp/iPhoneOS16.5.sdk.tar.xz
+          tar -xJf /tmp/iPhoneOS16.5.sdk.tar.xz -C "$THEOS/sdks"
+          test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
           echo "$THEOS/bin" >> "$GITHUB_PATH"
+          echo "Installed SDKs:"
+          ls -1 "$THEOS/sdks"
 
       - name: Build Rootless package
         working-directory: LowPowerSleep
         run: |
+          set -e
           make clean
           make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1 DEBUG=0
           mkdir -p ../artifacts/rootless
@@ -43,18 +50,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install roothide/Theos
+      - name: Install roothide/Theos and iOS 16.5 SDK
         shell: bash
         run: |
+          set -e
           export THEOS="$HOME/theos"
           echo "THEOS=$THEOS" >> "$GITHUB_ENV"
           git clone --recursive https://github.com/roothide/theos.git "$THEOS"
-          "$THEOS/bin/install-sdk" 16.5
+          mkdir -p "$THEOS/sdks"
+          curl -fL --retry 3 https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz -o /tmp/iPhoneOS16.5.sdk.tar.xz
+          tar -xJf /tmp/iPhoneOS16.5.sdk.tar.xz -C "$THEOS/sdks"
+          test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
           echo "$THEOS/bin" >> "$GITHUB_PATH"
+          echo "Installed SDKs:"
+          ls -1 "$THEOS/sdks"
 
       - name: Build Roothide package
         working-directory: LowPowerSleep
         run: |
+          set -e
           make clean
           make package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1 DEBUG=0
           mkdir -p ../artifacts/roothide
