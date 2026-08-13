@@ -3,9 +3,10 @@
 bool is_LPM_on_before;
 
 @interface _PMLowPowerMode : NSObject
-+ (instancetype)sharedInstance;
++ (id)sharedInstance;
 - (NSInteger)getPowerMode;
-- (void)setPowerMode:(NSInteger)powerMode fromSource:(NSString *)source;
+- (void)setPowerMode:(NSInteger)arg0 fromSource:(id)arg1;
+- (void)setPowerMode:(NSInteger)arg0 fromSource:(id)arg1 withCompletion:(id)arg2;
 @end
 
 @interface SBLockScreenManager : NSObject
