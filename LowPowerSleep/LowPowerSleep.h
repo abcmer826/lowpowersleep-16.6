@@ -2,11 +2,12 @@
 
 bool is_LPM_on_before;
 
+// iOS 15+
+// LowPowerMode.framework replaces _CDBatterySaver.
 @interface _PMLowPowerMode : NSObject
 + (id)sharedInstance;
 - (NSInteger)getPowerMode;
 - (void)setPowerMode:(NSInteger)arg0 fromSource:(id)arg1;
-- (void)setPowerMode:(NSInteger)arg0 fromSource:(id)arg1 withCompletion:(id)arg2;
 @end
 
 @interface SBLockScreenManager : NSObject
